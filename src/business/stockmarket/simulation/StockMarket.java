@@ -1,5 +1,7 @@
 package business.stockmarket.simulation;
 
+import business.events.StockUpdateEvent;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,4 +23,17 @@ public class StockMarket {
     public List<LiveStock> getStocks() {
         return stocks;
     }
+
+    private List<StockListener> listeners = new ArrayList<>();
+
+    public void addListener(StockListener listener) {
+        listeners.add(listener);
+    }
+
+    public void notifyListeners(StockUpdateEvent event) {
+        for (StockListener listener : listeners) {
+            listener.onStockUpdated(event);
+        }
+    }
+
 }
