@@ -1,13 +1,51 @@
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-void main() {
-    //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
-    // to see how IntelliJ IDEA suggests fixing it.
-    IO.println(String.format("Hello and welcome!"));
+import business.StockListenerService;
+import business.TradingService;
+import business.stockmarket.simulation.StockMarket;
+import business.stockmarket.simulation.MarketTicker;
+import domain.Stock;
+import persistence.*;
+import presentation.MainView;
+import presentation.PortfolioViewModel;
+import presentation.StockViewModel;
 
-    for (int i = 1; i <= 5; i++) {
-        //TIP Press <shortcut actionId="Debug"/> to start debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-        // for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.
-        IO.println("i = " + i);
+public class Main {
+
+    public static void main(String[] args) throws Exception {
+
+        // --- PERSISTENCE ---
+        FileUnitOfWork uow = new FileUnitOfWork("data");
+        FileStockDao stockDao    = new FileStockDao(uow);
+        FilePortfolioDao portDao = new FilePortfolioDao(uow);
+        FileOwnedStockDao osDao  = new FileOwnedStockDao(uow);
+
+        // --- SERVICES ---
+        TradingService tradingService = new TradingService(uow, stockDao, portDao, osDao);
+        StockListenerService listenerService = new StockListenerService(stockDao, uow);
+
+
+
+        // --- STOCK MARKET ---
+        StockMarket market = StockMarket.getInstance();
+        market.addListener(listenerService);
+
+        // --- VIEW MODEL ---
+        PortfolioViewModel portfolioVM = new PortfolioViewModel(tradingService, 1, 10000.0);
+        market.addListener(portfolioVM);
+
+        // Tilføj aktier til ViewModel
+        for (Stock s : stockDao.getAll()) {
+            portfolioVM.addStock(new StockViewModel(
+                    s.getSymbol(), s.getName(), s.getCurrentPrice(), s.getCurrentState()
+            ));
+        }
+
+        // --- START MARKET TICKER ---
+        Thread tickerThread = new Thread(new MarketTicker());
+        tickerThread.setDaemon(true);
+        tickerThread.start();
+
+        // --- START JAVAFX ---
+        MainView.sharedViewModel = portfolioVM;
+        javafx.application.Application.launch(MainView.class, args);
     }
 }
