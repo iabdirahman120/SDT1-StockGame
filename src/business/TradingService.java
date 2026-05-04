@@ -1,5 +1,7 @@
 package business;
 
+import business.strategy.BalancedStrategy;
+import business.strategy.TradingStrategy;
 import domain.OwnedStock;
 import domain.Portfolio;
 import domain.Stock;
@@ -15,6 +17,33 @@ public class TradingService {
     private StockDao stockDao;
     private PortfolioDao portfolioDao;
     private OwnedStockDao ownedStockDao;
+    // Den valgte strategi — kan skiftes på runtime
+    private TradingStrategy strategy = new BalancedStrategy();
+
+    public void setStrategy(TradingStrategy strategy) {
+        this.strategy = strategy;
+    }
+
+    // Køb aktier automatisk baseret på den valgte strategi
+    public void buyWithStrategy(int portfolioId, String symbol) {
+        try {
+            Portfolio portfolio = portfolioDao.getById(portfolioId);
+            Stock stock         = stockDao.getById(symbol);
+            if (portfolio == null || stock == null) return;
+
+            int quantity = strategy.calculateQuantity(
+                    portfolio.getCurrentBalance(), stock.getCurrentPrice()
+            );
+
+            if (quantity > 0) {
+                buyStock(portfolioId, symbol, quantity);
+            }
+        } catch (Exception e) {
+            Logger.getInstance().log("Fejl ved strategy køb: " + e.getMessage());
+        }
+    }
+
+
 
     public TradingService(UnitOfWork uow, StockDao stockDao,
                           PortfolioDao portfolioDao, OwnedStockDao ownedStockDao) {
